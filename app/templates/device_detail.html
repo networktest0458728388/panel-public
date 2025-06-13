@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">Устройство #{{ device.id }}</h2>
+<ul class="list-group mb-3">
+  <li class="list-group-item"><strong>Вендор:</strong> {{ device.vendor }}</li>
+  <li class="list-group-item"><strong>Продукт:</strong> {{ device.product }}</li>
+  <li class="list-group-item"><strong>Версия:</strong> {{ device.version or '-' }}</li>
+  <li class="list-group-item"><strong>Критичность:</strong> <span class="badge bg-danger">{{ device.final_criticality or 0 }}</span></li>
+  <li class="list-group-item"><strong>CPE:</strong> <span class="text-monospace small">{{ device.cpe or '-' }}</span></li>
+</ul>
+<!-- Кнопки -->
+<div class="mb-4">
+  <form method="post" action="{{ url_for('device_refresh', device_id=device.id) }}" style="display:inline;">
+    <button type="submit" class="btn btn-warning">Перепроверить уязвимости</button>
+  </form>
+  <form method="post" action="{{ url_for('device_delete', device_id=device.id) }}" style="display:inline;">
+    <button type="submit" class="btn btn-danger" onclick="return confirm('Точно удалить устройство?');">Удалить устройство</button>
+  </form>
+  <a href="{{ url_for('devices') }}" class="btn btn-secondary">К списку устройств</a>
+</div>
+
+<h4>Уязвимости</h4>
+{% if vulnerabilities %}
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>CVE</th>
+          <th>CVSS</th>
+          <th>Описание</th>
+          <th>Серьезность</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for vuln in vulnerabilities %}
+        {% set vuln_json = {
+          'id': vuln.id,
+          'device_id': vuln.device_id,
+          'cve': vuln.cve,
+          'cvss_score': vuln.cvss_score,
+          'epss_score': 0.0,
+          'exploit_available': False,
+          'description': vuln.description
+        } | tojson %}
+        <tr>
+          <td class="text-primary fw-bold">{{ vuln.cve }}</td>
+          <td>{{ vuln.cvss_score or '-' }}</td>
+          <td>{{ vuln.description[:250] }}{% if vuln.description|length > 250 %}...{% endif %}</td>
+          <td>{{ vuln.severity or '-' }}</td>
+          <td>
+            <button class="btn btn-sm btn-secondary"
+              type="button"
+              onclick='showJsonModal({{ vuln_json|safe }});'
+              title="Подробнее">
+              <span style="font-size: 1.2em;">▼</span>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Модальное окно -->
+<div class="modal fade" id="vulnModal" tabindex="-1" aria-labelledby="vulnModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="vulnModalLabel">Детали уязвимости</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+      </div>
+      <div class="modal-body">
+        <pre><code id="vulnModalJson" class="json"></code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<p>Уязвимости не найдены.</p>
+{% endif %}
+
+<script>
+function showJsonModal(jsonData) {
+    let formatted = JSON.stringify(jsonData, null, 2);
+    const codeBlock = document.getElementById('vulnModalJson');
+    codeBlock.textContent = formatted;
+    hljs.highlightElement(codeBlock);
+    let myModal = new bootstrap.Modal(document.getElementById('vulnModal'));
+    myModal.show();
+}
+</script>
+{% endblock %}

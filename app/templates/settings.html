@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">Настройки</h2>
+<div class="card mb-4 shadow-sm">
+  <div class="card-header bg-primary text-white">Импорт устройств из XLS/XLSX</div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {{ form.hidden_tag() }}
+      <div class="mb-3">
+        {{ form.file.label(class="form-label") }} {{ form.file(class="form-control") }}
+      </div>
+      {{ form.submit(class="btn btn-primary") }}
+    </form>
+  </div>
+</div>
+
+<!-- Глобальная кнопка удаления -->
+<form method="post" action="{{ url_for('delete_all_devices') }}" class="mt-2">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить все устройства и уязвимости?');">
+    Удалить все устройства
+  </button>
+</form>
+{% endblock %}
