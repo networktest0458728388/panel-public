@@ -8,6 +8,7 @@ class Device(db.Model):
     cpe = db.Column(db.String(256))
     vulnerabilities = db.relationship('Vulnerability', backref='device', lazy=True)
     final_criticality = db.Column(db.Float)
+    vulns_loaded = db.Column(db.Boolean, default=False, nullable=False)
 
 class Vulnerability(db.Model):
     id = db.Column(db.Integer, primary_key=True)

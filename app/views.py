@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, has_request_context
 from . import db
 from .models import Device, Vulnerability
 from .forms import ImportXLSForm, AddDeviceForm
@@ -6,10 +6,23 @@ import pandas as pd
 import requests
 import re
 import os
+from threading import Thread
 
 from flask import current_app as app
 
-NVD_API_KEY = os.environ.get('NVD_API_KEY')  
+NVD_API_KEY = os.environ.get('NVD_API_KEY')
+
+# ----------------- background processing -----------------
+def _process_device(device_id):
+    with app.app_context():
+        device = Device.query.get(device_id)
+        if device:
+            fetch_and_save_nvd_vulns(device)
+
+
+def schedule_device_processing(device_id):
+    Thread(target=_process_device, args=(device_id,), daemon=True).start()
+
 
 def get_severity(cvss):
     if cvss is None:
@@ -61,7 +74,8 @@ def find_cpes_by_keyword(vendor, product, version):
         if r.ok:
             return [item["cpe"]["cpeName"] for item in r.json().get("products", [])]
     except Exception as ex:
-        flash(f"Ошибка поиска CPE: {ex}", "danger")
+        if has_request_context():
+            flash(f"Ошибка поиска CPE: {ex}", "danger")
     return []
 
 def fetch_and_save_nvd_vulns(device, force_update=False):
@@ -122,10 +136,12 @@ def fetch_and_save_nvd_vulns(device, force_update=False):
                 found_cves.add(cve_id)
             db.session.commit()
         except Exception as ex:
-            flash(f"Ошибка при обращении к NVD для {cpe}: {ex}", "danger")
+            if has_request_context():
+                flash(f"Ошибка при обращении к NVD для {cpe}: {ex}", "danger")
 
     vuls = Vulnerability.query.filter_by(device_id=device.id).all()
-    device.final_criticality = round(sum([v.final_criticality for v in vuls]), 2) # сюда потом формулу вставить
+    device.final_criticality = round(sum([v.final_criticality for v in vuls]), 2)  # сюда потом формулу вставить
+    device.vulns_loaded = True
     db.session.commit()
     return vulns_added
 
@@ -211,16 +227,13 @@ def devices():
             vendor=vendor,
             product=product,
             version=version,
-            final_criticality=0
+            final_criticality=0,
+            vulns_loaded=False
         )
         db.session.add(new_device)
         db.session.commit()
 
         fetch_and_save_nvd_vulns(new_device)
-
-        vuls = Vulnerability.query.filter_by(device_id=new_device.id).all()
-        new_device.final_criticality = round(sum([v.final_criticality for v in vuls]), 2)
-        db.session.commit()
         flash('Устройство добавлено и уязвимости импортированы!', 'success')
         return redirect(url_for('device_detail', device_id=new_device.id))
 
@@ -261,6 +274,7 @@ def settings():
             return redirect(url_for('settings'))
 
         count_new = 0
+        created_ids = []
         for _, row in df.iterrows():
             vendor = guess_vendor(row['Производитель'])
             product = guess_product(row)
@@ -270,18 +284,22 @@ def settings():
             ).first()
             if not device:
                 device = Device(
-                    vendor=vendor, product=product, version=version, final_criticality=0
+                    vendor=vendor,
+                    product=product,
+                    version=version,
+                    final_criticality=0,
+                    vulns_loaded=False,
                 )
                 db.session.add(device)
                 db.session.commit()
-                fetch_and_save_nvd_vulns(device)
+                created_ids.append(device.id)
             count_new += 1
-        for device in Device.query.all():
-            vuls = Vulnerability.query.filter_by(device_id=device.id).all()
-            if vuls:
-                device.final_criticality = round(sum([v.final_criticality for v in vuls]), 2)
-                db.session.commit()
-        flash(f'Импортировано устройств: {count_new}', 'success')
+        for dev_id in created_ids:
+            schedule_device_processing(dev_id)
+        flash(
+            f'Импортировано устройств: {count_new}. Загрузка уязвимостей выполняется в фоне',
+            'success',
+        )
         return redirect(url_for('settings'))
     return render_template('settings.html', form=form)
 
