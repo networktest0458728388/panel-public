@@ -31,6 +31,7 @@
           <th>Версия</th>
           <th>Критичность</th>
           <th>CPE</th>
+          <th>Статус</th>
           <th>Действия</th>
         </tr>
       </thead>
@@ -45,6 +46,13 @@
             <span class="badge bg-danger">{{ device.final_criticality or 0 }}</span>
           </td>
           <td><span class="text-monospace small">{{ device.cpe or "-" }}</span></td>
+          <td>
+            {% if device.vulns_loaded %}
+              <span class="badge bg-success">&#10003;</span>
+            {% else %}
+              <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+            {% endif %}
+          </td>
           <td>
             <a href="{{ url_for('device_detail', device_id=device.id) }}" class="btn btn-info btn-sm">Подробнее</a>
             <form method="post" action="{{ url_for('device_delete', device_id=device.id) }}" style="display:inline;">
