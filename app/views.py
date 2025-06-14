@@ -2,10 +2,15 @@ from flask import render_template, request, redirect, url_for, flash, has_reques
 from . import db
 from .models import Device, Vulnerability
 from .forms import ImportXLSForm, AddDeviceForm
+import os
+os.environ["OMP_NUM_THREADS"] = "4"
+os.environ["OPENBLAS_NUM_THREADS"] = "4"
+os.environ["MKL_NUM_THREADS"] = "6"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "4" 
+os.environ["NUMEXPR_NUM_THREADS"] = "6"
 import pandas as pd
 import requests
 import re
-import os
 from threading import Thread
 
 from flask import current_app as app
