@@ -16,5 +16,20 @@ def create_app():
     csrf.init_app(app)
 
     with app.app_context():
+        _ensure_schema()
+
+    with app.app_context():
         from . import views, models
     return app
+
+
+def _ensure_schema():
+    insp = db.inspect(db.engine)
+    columns = {col["name"] for col in insp.get_columns("device")}
+    if "vulns_loaded" not in columns:
+        db.session.execute(
+            db.text(
+                "ALTER TABLE device ADD COLUMN vulns_loaded BOOLEAN NOT NULL DEFAULT 0"
+            )
+        )
+        db.session.commit()
