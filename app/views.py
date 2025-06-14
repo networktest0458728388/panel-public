@@ -12,7 +12,6 @@ from flask import current_app as app
 
 NVD_API_KEY = os.environ.get('NVD_API_KEY')
 
-# ----------------- background processing -----------------
 def _process_device(device_id):
     with app.app_context():
         device = Device.query.get(device_id)
