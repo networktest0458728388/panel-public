@@ -24,6 +24,7 @@ def create_app():
 
 
 def _ensure_schema():
+    # чтобы если вдруг старая дб
     insp = db.inspect(db.engine)
     columns = {col["name"] for col in insp.get_columns("device")}
     if "vulns_loaded" not in columns:
