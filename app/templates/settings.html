@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card mb-4">
+  <div class="card-header bg-primary text-white">Добавить устройство</div>
+  <div class="card-body">
+    <form method="post">
+      {{ add_form.hidden_tag() }}
+      <div class="mb-3">
+        {{ add_form.vendor.label(class="form-label") }} {{ add_form.vendor(class="form-control", placeholder="Вендор") }}
+      </div>
+      <div class="mb-3">
+        {{ add_form.product.label(class="form-label") }} {{ add_form.product(class="form-control", placeholder="Модель") }}
+      </div>
+      <div class="mb-3">
+        {{ add_form.version.label(class="form-label") }} {{ add_form.version(class="form-control", placeholder="Версия") }}
+      </div>
+      {{ add_form.submit(class="btn btn-primary") }}
+    </form>
+  </div>
+</div>
+<div class="card mb-4 shadow-sm">
+  <div class="card-header bg-primary text-white">Импорт устройств из XLS/XLSX</div>
+  <div class="card-body">
+    <form method="post" enctype="multipart/form-data">
+      {{ form.hidden_tag() }}
+      <div class="mb-3">
+        {{ form.file.label(class="form-label") }} {{ form.file(class="form-control") }}
+      </div>
+      {{ form.submit(class="btn btn-primary") }}
+    </form>
+  </div>
+</div>
+<form method="post" action="{{ url_for('delete_all') }}" class="mt-2">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить всё?');">
+    Удалить всё
+  </button>
+</form>
+<form method="post" action="{{ url_for('delete_all_devices') }}" class="mt-2">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button type="submit" class="btn btn-danger" onclick="return confirm('Удалить всё оборудование?');">
+    Удалить все устройства
+  </button>
+</form>
+{% endblock %}

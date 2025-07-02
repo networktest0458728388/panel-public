@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header bg-light">
+    {% if code %}Редактировать код {{ code.code }}{% else %}Добавить код{% endif %}
+  </div>
+  <div class="card-body">
+    <form method="post">
+      {{ form.hidden_tag() }}
+      <div class="mb-3">
+        {{ form.code.label(class="form-label") }}
+        {{ form.code(class="form-control", readonly=code is not none) }}
+      </div>
+      <div class="mb-3">
+        {{ form.name.label(class="form-label") }}
+        {{ form.name(class="form-control") }}
+      </div>
+      <div class="mb-3">
+        {{ form.criticality_multiplier.label(class="form-label") }}
+        {{ form.criticality_multiplier(class="form-control") }}
+      </div>
+      <button type="submit" class="btn btn-success">Сохранить</button>
+      <a href="{{ url_for('assignment_codes') }}" class="btn btn-secondary">Назад</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row g-5 mb-5">
+    <div class="col-md-5">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h6 class="card-title text-secondary">Всего устройств</h6>
+                <div class="display-5 text-primary">{{ devices_count }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h6 class="card-title text-secondary">Всего уязвимостей</h6>
+                <div class="display-5 text-danger">{{ vulnerabilities_count }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}

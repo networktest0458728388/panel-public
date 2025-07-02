@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header bg-light">Список оборудования</div>
+  <div class="card-body pb-0">
+    <!-- Форма фильтрации -->
+    <form method="get" class="row g-2 mb-2" id="filterForm" autocomplete="off">
+      <div class="col-auto">
+        <select name="prod" id="filterProd" class="form-select form-select-sm">
+          <option value="">Все производители</option>
+          {% for prod in prod_list %}
+            <option value="{{ prod }}" {% if selected_prod == prod %}selected{% endif %}>{{ prod }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <select name="model" id="filterModel" class="form-select form-select-sm">
+          <option value="">Все модели</option>
+          {% if selected_prod and prod_models_dict and selected_prod in prod_models_dict %}
+            {% for model in prod_models_dict[selected_prod] %}
+              <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
+            {% endfor %}
+          {% else %}
+            {% for model in model_list %}
+              <option value="{{ model }}" {% if selected_model == model %}selected{% endif %}>{{ model }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      <!-- Фильтр по критичности -->
+      <div class="col-auto">
+        <select name="criticality" class="form-select form-select-sm" title="Критичность определяется по EOL, показателям Software и коэффициенту кода назначения">
+          <option value="">Критичность: все</option>
+          <option value="high" {% if selected_crit == "high" %}selected{% endif %}>Высокая</option>
+          <option value="low" {% if selected_crit == "low" %}selected{% endif %}>Низкая</option>
+        </select>
+      </div>
+      <!-- Фильтр по коду назначения -->
+      <div class="col-auto">
+        <select name="target_code" class="form-select form-select-sm" title="Код назначения IP оборудования">
+          <option value="">Все коды назначения</option>
+          {% for ac in assignment_codes %}
+            <option value="{{ ac.code }}" {% if selected_target_code == ac.code %}selected{% endif %}>
+              {{ ac.code }}{% if ac.name and ac.name != '-' %} — {{ ac.name }}{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary btn-sm">Фильтровать</button>
+        <a href="{{ url_for('devices') }}" class="btn btn-outline-secondary btn-sm">Сбросить</a>
+        <!-- Экспорт -->
+        <a href="{{ url_for('devices_export', prod=selected_prod, model=selected_model, criticality=selected_crit, target_code=selected_target_code) }}"
+           class="btn btn-success btn-sm ms-2"
+           title="Выгрузить все отфильтрованные записи в Excel">
+          Экспорт в Excel
+        </a>
+      </div>
+    </form>
+
+    <!-- Таблица -->
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover align-middle mb-0" id="deviceTable">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Производитель</th>
+            <th>Модель</th>
+            <th>Код назначения</th>
+            <th>Дата ввода</th>
+            <th class="text-center" style="min-width:110px;">EOL</th>
+            <th class="text-center">Критичность</th>
+            <th class="text-center">EPSS</th>
+            <th class="text-center">Статус</th>
+            <th class="text-center">Действия</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td>{{ row.input.id }}</td>
+            <td>{{ row.input.prod_name }}</td>
+            <td>{{ row.input.equip_model_name }}</td>
+            <td>
+              {{ row.assignment_code }}
+            </td>
+            <td>{{ row.input.start_date or '-' }}</td>
+            <!-- EOL -->
+            <td class="text-center">
+              {% set eol = row.input.eol %}
+              {% set eol_date = row.eol_date %}
+              {% if eol and eol != "-" and eol_date %}
+                {% if eol_date < today_str %}
+                  <span class="badge bg-danger" title="Просрочено">{{ eol }}</span>
+                {% else %}
+                  <span class="badge bg-success">{{ eol }}</span>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-success">-</span>
+              {% endif %}
+            </td>
+            <!-- Критичность -->
+            <td class="text-center">
+              {% if row.device %}
+                {% set conf = (row.device.confident_score or 0) * row.multiplier %}
+                {% set integ = (row.device.integrity_score or 0) * row.multiplier %}
+                {% set avail = (row.device.accessibility_score or 0) * row.multiplier %}
+                {% if conf > 0.5 or integ > 0.5 or avail > 0.5 %}
+                  <span class="badge bg-danger" title="Учет коэффициента назначения: {{ row.multiplier }}">Высокая</span>
+                {% else %}
+                  <span class="badge bg-success" title="Учет коэффициента назначения: {{ row.multiplier }}">Низкая</span>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-secondary">Нет данных</span>
+              {% endif %}
+            </td>
+            <!-- EPSS -->
+            <td class="text-center">
+              {% set epsse = row.device.epss_score or 0 %}
+              {% if epsse > 0.5 %}
+                <span class="badge bg-danger">{{ row.device.epss_score }}</span>
+              {% else %}
+                <span class="badge bg-success">{{ row.device.epss_score }}</span>
+              {% endif %}
+            </td>
+            <!-- Статус -->
+            <td class="text-center">
+              {% if row.device %}
+                {% if row.device.status %}
+                  <span class="badge bg-success">&#10003;</span>
+                {% else %}
+                  <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-secondary">Нет данных</span>
+              {% endif %}
+            </td>
+            <!-- Действия -->
+            <td class="text-center">
+              {% if row.device %}
+                <a href="{{ url_for('device_detail', device_id=row.input.id) }}" class="btn btn-info btn-sm">Подробнее</a>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+              <form method="post" action="{{ url_for('delete_all_devices', input_id=row.input.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Удалить запись?');">
+                  Удалить
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if rows|length == 0 %}
+      <div class="alert alert-info mt-3">Нет записей по выбранным фильтрам.</div>
+    {% endif %}
+
+    <div class="d-flex justify-content-between align-items-center mt-3">
+      <div>
+        Показано {{ rows|length }} из {{ total_pages * 100 if total_pages > 0 else rows|length }} устройств
+      </div>
+      <nav>
+        <ul class="pagination mb-0">
+          <li class="page-item{% if page <= 1 %} disabled{% endif %}">
+            <a class="page-link"
+               href="{{ url_for('devices', page=page-1, prod=selected_prod, model=selected_model, criticality=selected_crit, target_code=selected_target_code) }}"
+               tabindex="-1">Назад</a>
+          </li>
+          {% for p in range(1, total_pages + 1) %}
+            {% if total_pages <= 7 or p == 1 or p == total_pages or (p >= page-2 and p <= page+2) %}
+              <li class="page-item{% if p == page %} active{% endif %}">
+                <a class="page-link"
+                   href="{{ url_for('devices', page=p, prod=selected_prod, model=selected_model, criticality=selected_crit, target_code=selected_target_code) }}">{{ p }}</a>
+              </li>
+            {% elif p == page-3 or p == page+3 %}
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+          {% endfor %}
+          <li class="page-item{% if page >= total_pages %} disabled{% endif %}">
+            <a class="page-link"
+               href="{{ url_for('devices', page=page+1, prod=selected_prod, model=selected_model, criticality=selected_crit, target_code=selected_target_code) }}">Вперёд</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const prodModels = {{ prod_models_json|safe }};
+  const filterProd = document.getElementById('filterProd');
+  const filterModel = document.getElementById('filterModel');
+  filterProd.addEventListener('change', function() {
+    const prod = filterProd.value;
+    filterModel.innerHTML = '';
+    let optionAll = document.createElement('option');
+    optionAll.value = '';
+    optionAll.text = 'Все модели';
+    filterModel.appendChild(optionAll);
+    if (prod && prodModels[prod]) {
+      prodModels[prod].forEach(function(model) {
+        let opt = document.createElement('option');
+        opt.value = model;
+        opt.text = model;
+        filterModel.appendChild(opt);
+      });
+    } else {
+      {% for model in model_list %}
+        let opt = document.createElement('option');
+        opt.value = "{{ model }}";
+        opt.text = "{{ model }}";
+        filterModel.appendChild(opt);
+      {% endfor %}
+    }
+  });
+});
+</script>
+{% endblock %}
